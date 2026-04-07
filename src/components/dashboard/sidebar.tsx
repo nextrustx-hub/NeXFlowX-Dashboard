@@ -1,48 +1,79 @@
 'use client';
 
-import { 
-  LayoutDashboard, 
-  Network, 
-  ArrowLeftRight, 
-  Key, 
+import {
+  LayoutDashboard,
+  Network,
+  ArrowLeftRight,
+  Key,
   Link2,
   ChevronLeft,
   ChevronRight,
-  Zap
+  Zap,
+  Users,
+  Package,
+  ExternalLink,
 } from 'lucide-react';
 import { useDashboardStore, type DashboardSection } from '@/lib/dashboard-store';
 import { systemStateMock } from '@/lib/mock-system-state';
 
 const navItems: { id: DashboardSection; label: string; icon: React.ReactNode; description: string }[] = [
-  { 
-    id: 'dashboard', 
-    label: 'Dashboard', 
-    icon: <LayoutDashboard className="w-4 h-4" />, 
-    description: 'Visão geral' 
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: <LayoutDashboard className="w-4 h-4" />,
+    description: 'Visão geral'
   },
-  { 
-    id: 'capacity', 
-    label: 'Capacidade de Rede', 
-    icon: <Network className="w-4 h-4" />, 
-    description: `${systemStateMock.length} trilhos · ${new Set(systemStateMock.map(e => e.country_code)).size} países` 
+  {
+    id: 'capacity',
+    label: 'Capacidade de Rede',
+    icon: <Network className="w-4 h-4" />,
+    description: `${systemStateMock.length} trilhos · ${new Set(systemStateMock.map(e => e.country_code)).size} países`
   },
-  { 
-    id: 'transactions', 
-    label: 'Transações', 
-    icon: <ArrowLeftRight className="w-4 h-4" />, 
-    description: 'Fluxo de pagamentos' 
+  {
+    id: 'crm',
+    label: 'Clientes & Encomendas',
+    icon: <Users className="w-4 h-4" />,
+    description: 'Mini-CRM e logística'
   },
-  { 
-    id: 'api-integration', 
-    label: 'API & Integração', 
-    icon: <Key className="w-4 h-4" />, 
-    description: 'Chaves e Webhooks' 
+  {
+    id: 'transactions',
+    label: 'Transações',
+    icon: <ArrowLeftRight className="w-4 h-4" />,
+    description: 'Fluxo de pagamentos'
   },
-  { 
-    id: 'payment-links', 
-    label: 'Gerar Link de Pagamento', 
-    icon: <Link2 className="w-4 h-4" />, 
-    description: 'Criar URLs de checkout' 
+  {
+    id: 'api-integration',
+    label: 'API & Integração',
+    icon: <Key className="w-4 h-4" />,
+    description: 'Chaves e Webhooks'
+  },
+  {
+    id: 'payment-links',
+    label: 'Gerar Link de Pagamento',
+    icon: <Link2 className="w-4 h-4" />,
+    description: 'Criar URLs de checkout'
+  },
+  {
+    id: 'catalog',
+    label: 'Catálogo Rápido',
+    icon: <Package className="w-4 h-4" />,
+    description: 'Gestão de produtos'
+  },
+];
+
+const externalLinks: {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  url: string;
+  description: string;
+}[] = [
+  {
+    id: 'core-bank',
+    label: 'NeXFlowX Core Bank',
+    icon: <ExternalLink className="w-3.5 h-3.5" />,
+    url: 'https://fintech.nexflowx.tech',
+    description: 'Plataforma bancária',
   },
 ];
 
@@ -104,6 +135,39 @@ export default function Sidebar() {
               </div>
             )}
           </button>
+        ))}
+
+        {/* Separator */}
+        {!sidebarCollapsed && (
+          <div className="my-4 px-3">
+            <div className="h-px bg-[rgba(51,51,51,0.3)]" />
+          </div>
+        )}
+
+        {/* External Links */}
+        {externalLinks.map((link) => (
+          <a
+            key={link.id}
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`
+              w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
+              transition-all duration-200 group relative cyber-sidebar-link
+              hover:text-[#00F0FF] hover:bg-[rgba(0,240,255,0.04)] hover:border-l-[rgba(0,240,255,0.3)]
+            `}
+            title={sidebarCollapsed ? link.label : undefined}
+          >
+            <span className="shrink-0 transition-colors duration-200 text-[#666677] group-hover:text-[#00F0FF]">
+              {link.icon}
+            </span>
+            {!sidebarCollapsed && (
+              <div className="text-left">
+                <span className="block text-sm font-medium">{link.label}</span>
+                <span className="block text-[10px] text-[#555566] cyber-mono">{link.description}</span>
+              </div>
+            )}
+          </a>
         ))}
       </nav>
 

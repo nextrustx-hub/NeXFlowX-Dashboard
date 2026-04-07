@@ -10,6 +10,8 @@ import LogisticPipeline from '@/components/dashboard/logistic-pipeline';
 import TransactionsTable from '@/components/dashboard/transactions-table';
 import PaymentLinkGenerator from '@/components/dashboard/payment-link-generator';
 import APIManagement from '@/components/dashboard/api-management';
+import CRMPage from '@/components/dashboard/crm-page';
+import CatalogPage from '@/components/dashboard/catalog-page';
 import { LogOut } from 'lucide-react';
 
 export default function DashboardShell() {
@@ -87,6 +89,28 @@ export default function DashboardShell() {
                 <div className="flex-1 h-px bg-[rgba(51,51,51,0.3)]" />
               </div>
               <PaymentLinkGenerator />
+            </div>
+          )}
+
+          {/* CRM Section */}
+          {activeSection === 'crm' && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-[10px] cyber-mono text-[#555566] tracking-wider">CLIENTES // ENCOMENDAS</span>
+                <div className="flex-1 h-px bg-[rgba(51,51,51,0.3)]" />
+              </div>
+              <CRMPage />
+            </div>
+          )}
+
+          {/* Catalog Section */}
+          {activeSection === 'catalog' && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-[10px] cyber-mono text-[#555566] tracking-wider">CATÁLOGO // PRODUTOS</span>
+                <div className="flex-1 h-px bg-[rgba(51,51,51,0.3)]" />
+              </div>
+              <CatalogPage />
             </div>
           )}
         </main>

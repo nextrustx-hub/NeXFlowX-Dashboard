@@ -13,21 +13,13 @@ import {
 } from 'lucide-react';
 import { api, NexFlowXAPIError } from '@/lib/api/client';
 import type { PaymentLink } from '@/lib/api/contracts';
-import {
-  systemStateMock,
-  statusColorMap,
-  type SystemStateEntry,
-} from '@/lib/mock-system-state';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────
 
 const CURRENCIES = [
   { code: 'EUR', symbol: '€', label: 'Euro' },
   { code: 'USD', symbol: '$', label: 'Dólar Americano' },
-  { code: 'GBP', symbol: '£', label: 'Libra Esterlina' },
   { code: 'BRL', symbol: 'R$', label: 'Real Brasileiro' },
-  { code: 'KES', symbol: 'KSh', label: 'Xelim Queniano' },
-  { code: 'NGN', symbol: '₦', label: 'Naira Nigeriana' },
 ] as const;
 
 const CHECKOUT_BASE_URL = 'https://pay.nexflowx.tech';
@@ -37,14 +29,6 @@ const CHECKOUT_BASE_URL = 'https://pay.nexflowx.tech';
 /** Get the currency symbol for display in the input */
 function getCurrencySymbol(code: string): string {
   return CURRENCIES.find((c) => c.code === code)?.symbol ?? '€';
-}
-
-/** Rail status color */
-function railStatusColor(entry: SystemStateEntry): string {
-  if (entry.availability_status === 'CRITICAL') return '#FF0040';
-  if (entry.availability_status === 'LIMITED') return '#FF8C00';
-  if (entry.availability_status === 'INTEGRATION_IN_PROGRESS') return '#FFD600';
-  return '#00FF41';
 }
 
 /** Copy text to clipboard with fallback */
@@ -75,7 +59,7 @@ export default function PaymentLinkGenerator() {
   // Form state
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('EUR');
-  const [description, setDescription] = useState('');
+  const [productName, setProductName] = useState('');
 
   // Creation state
   const [isCreating, setIsCreating] = useState(false);
@@ -85,22 +69,11 @@ export default function PaymentLinkGenerator() {
   const [showModal, setShowModal] = useState(false);
   const [createdLink, setCreatedLink] = useState<PaymentLink | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedSocial, setCopiedSocial] = useState(false);
 
   // ─── Derived ──────────────────────────────────────────────────────────
 
   const parsedAmount = parseFloat(amount.replace(',', '.'));
   const currencySymbol = getCurrencySymbol(currency);
-
-  // Get all unique rails (deduplicated by payment_method name, keep first occurrence)
-  const uniqueRails: SystemStateEntry[] = [];
-  const seenMethods = new Set<string>();
-  for (const entry of systemStateMock) {
-    if (!seenMethods.has(entry.payment_method)) {
-      seenMethods.add(entry.payment_method);
-      uniqueRails.push(entry);
-    }
-  }
 
   // ─── Handlers ─────────────────────────────────────────────────────────
 
@@ -114,20 +87,18 @@ export default function PaymentLinkGenerator() {
       const response = await api.paymentLinks.create({
         amount: parsedAmount,
         currency: currency,
-        description: description.trim() || undefined,
+        metadata: {
+          product: productName.trim() || 'Sem nome',
+        },
       });
 
       const newLink = response.data;
       setCreatedLink(newLink);
       setShowModal(true);
 
-      // Auto-open the checkout URL in a new tab
-      const checkoutUrl = `${CHECKOUT_BASE_URL}/${newLink.id}`;
-      window.open(checkoutUrl, '_blank');
-
       // Clear form
       setAmount('');
-      setDescription('');
+      setProductName('');
     } catch (err) {
       if (err instanceof NexFlowXAPIError) {
         setCreationError(err.message);
@@ -147,19 +118,9 @@ export default function PaymentLinkGenerator() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleCopySocial = async () => {
-    if (!createdLink) return;
-    const url = `${CHECKOUT_BASE_URL}/${createdLink.id}`;
-    const message = `Pague agora: ${url}`;
-    await copyToClipboard(message);
-    setCopiedSocial(true);
-    setTimeout(() => setCopiedSocial(false), 2000);
-  };
-
   const handleCloseModal = () => {
     setShowModal(false);
     setCopiedLink(false);
-    setCopiedSocial(false);
   };
 
   // ─── Render ─────────────────────────────────────────────────────────
@@ -216,17 +177,16 @@ export default function PaymentLinkGenerator() {
               </select>
             </div>
 
-            {/* ── Description Input ── */}
+            {/* ── Product Name Input ── */}
             <div>
               <label className="block text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
-                DESCRIÇÃO{' '}
-                <span className="text-[#444455]">(opcional)</span>
+                NOME DO PRODUTO
               </label>
               <input
                 type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Fatura #2024-001"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="Ex: Plano Mensal Premium"
                 className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
               />
             </div>
@@ -259,37 +219,6 @@ export default function PaymentLinkGenerator() {
                 </>
               )}
             </button>
-          </div>
-        </div>
-
-        {/* ═══ Rails Available (Badges) ═══ */}
-        <div className="cyber-panel p-4 border border-[rgba(0,240,255,0.12)]">
-          <label className="block text-[10px] cyber-mono text-[#555566] mb-2.5 tracking-wider">
-            TRILHOS DISPONÍVEIS
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {uniqueRails.map((rail) => {
-              const color = railStatusColor(rail);
-              const cfg = statusColorMap[rail.availability_status];
-              return (
-                <span
-                  key={rail.payment_method}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] cyber-mono"
-                  style={{
-                    borderColor: `${color}44`,
-                    backgroundColor: `${color}0A`,
-                    color: color,
-                  }}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span>{rail.payment_method}</span>
-                  <span className="text-[8px] opacity-60">{cfg.label}</span>
-                </span>
-              );
-            })}
           </div>
         </div>
       </div>
@@ -325,25 +254,31 @@ export default function PaymentLinkGenerator() {
                 Link Criado com Sucesso!
               </h2>
               <p className="text-xs text-[#888899] mt-1">
-                O checkout foi aberto numa nova aba
+                Partilha este link para receber pagamentos
               </p>
             </div>
 
-            {/* Checkout URL display */}
-            <div className="mb-4">
+            {/* Shareable URL display */}
+            <div className="mb-5">
               <label className="block text-[9px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
-                CHECKOUT URL
+                LINK DE CHECKOUT
               </label>
               <div className="flex items-center gap-2 p-3 rounded-lg bg-[rgba(10,10,14,0.6)] border border-[rgba(51,51,51,0.4)]">
                 <ExternalLink className="w-3.5 h-3.5 text-[#00F0FF] shrink-0" />
                 <code className="flex-1 text-xs cyber-mono text-[#00F0FF] truncate">
-                  {CHECKOUT_BASE_URL}/{createdLink.id}
+                  {createdLink.shareable_url}
                 </code>
               </div>
             </div>
 
-            {/* Amount + Currency info */}
-            <div className="flex items-center justify-center gap-4 mb-5 text-[11px] cyber-mono text-[#888899]">
+            {/* Amount + Currency + Product info */}
+            <div className="flex flex-col items-center gap-2 mb-5 text-[11px] cyber-mono text-[#888899]">
+              <span>
+                Produto:{' '}
+                <span className="text-[#E0E0E8]">
+                  {productName.trim() || 'Sem nome'}
+                </span>
+              </span>
               <span>
                 Valor:{' '}
                 <span className="text-[#E0E0E8]">
@@ -354,12 +289,6 @@ export default function PaymentLinkGenerator() {
                   {currency}
                 </span>
               </span>
-              {createdLink.short_code && (
-                <span>
-                  Código:{' '}
-                  <span className="text-[#E0E0E8]">{createdLink.short_code}</span>
-                </span>
-              )}
             </div>
 
             {/* Action buttons */}
@@ -378,24 +307,6 @@ export default function PaymentLinkGenerator() {
                   <>
                     <Copy className="w-4 h-4" />
                     <span>Copiar Link</span>
-                  </>
-                )}
-              </button>
-
-              {/* Copy social message */}
-              <button
-                onClick={handleCopySocial}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium cyber-mono transition-all duration-200 border border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.06)] text-[#00F0FF] hover:bg-[rgba(0,240,255,0.12)]"
-              >
-                {copiedSocial ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>Copiado!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    <span>Copiar para Redes Sociais</span>
                   </>
                 )}
               </button>
