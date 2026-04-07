@@ -13,6 +13,19 @@ import {
 } from 'lucide-react';
 import { api, NexFlowXAPIError } from '@/lib/api/client';
 import type { PaymentLink } from '@/lib/api/contracts';
+import { useToast } from '@/hooks/use-toast';
+
+// ─── TYPES ────────────────────────────────────────────────────────────
+
+interface PaymentLinkRequest {
+  amount: number;
+  currency: string;
+  metadata: { product: string };
+}
+
+interface PaymentLinkResponse {
+  data: { id: string; shareable_url: string };
+}
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────
 
@@ -56,6 +69,8 @@ async function copyToClipboard(text: string): Promise<boolean> {
 // ─── COMPONENT ────────────────────────────────────────────────────────────
 
 export default function PaymentLinkGenerator() {
+  const { toast } = useToast();
+
   // Form state
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('EUR');
@@ -113,9 +128,16 @@ export default function PaymentLinkGenerator() {
   const handleCopyLink = async () => {
     if (!createdLink) return;
     const url = `${CHECKOUT_BASE_URL}/${createdLink.id}`;
-    await copyToClipboard(url);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    const success = await copyToClipboard(url);
+    if (success) {
+      setCopiedLink(true);
+      toast({
+        title: 'Link copiado com sucesso!',
+        description: 'O link de pagamento está pronto para ser partilhado.',
+        className: 'border-[#00FF41] bg-[rgba(0,255,65,0.1)] text-[#00FF41]',
+      });
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
   };
 
   const handleCloseModal = () => {

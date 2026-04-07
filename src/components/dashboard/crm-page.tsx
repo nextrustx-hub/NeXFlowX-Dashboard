@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Table,
   TableBody,
@@ -11,15 +11,20 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, Package, Globe, Mail } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Loader2, Search, Package, Globe, Mail, MoreVertical, CheckCircle2, Truck, Package2 } from 'lucide-react';
 import { api, NexFlowXAPIError } from '@/lib/api/client';
-import type { Transaction } from '@/lib/api/contracts';
+import type { Transaction, LogisticsStatus } from '@/lib/api/contracts';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
-
-type LogisticsStatus = 'processing' | 'shipped' | 'delivered';
 
 interface CRMEntry extends Transaction {
   logisticsStatus?: LogisticsStatus;
@@ -59,7 +64,7 @@ function getLogisticsStatusColor(status: LogisticsStatus): string {
 function getLogisticsStatusLabel(status: LogisticsStatus): string {
   switch (status) {
     case 'processing':
-      return 'Processamento';
+      return 'Em Processamento';
     case 'shipped':
       return 'Enviado';
     case 'delivered':
@@ -69,8 +74,27 @@ function getLogisticsStatusLabel(status: LogisticsStatus): string {
   }
 }
 
+/** Get logistics status icon */
+function getLogisticsStatusIcon(status: LogisticsStatus) {
+  switch (status) {
+    case 'processing':
+      return <Package2 className="w-3 h-3" />;
+    case 'shipped':
+      return <Truck className="w-3 h-3" />;
+    case 'delivered':
+      return <CheckCircle2 className="w-3 h-3" />;
+    default:
+      return <Package2 className="w-3 h-3" />;
+  }
+}
+
 /** Map transaction status to logistics status (mock logic) */
 function mapTransactionToLogisticsStatus(transaction: Transaction): LogisticsStatus {
+  // Use the backend's logistics_status if available
+  if (transaction.logistics_status) {
+    return transaction.logistics_status;
+  }
+  // Otherwise, infer from payment status
   if (transaction.status === 'completed') {
     return 'delivered';
   }
@@ -104,6 +128,8 @@ function formatAmount(amount: number, currency: string): string {
 export default function CRMPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<LogisticsStatus | 'all'>('all');
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Fetch transactions using TanStack Query
   const {
@@ -125,6 +151,29 @@ export default function CRMPage() {
     },
     retry: 2,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Mutation to update logistics status
+  const updateLogisticsMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: LogisticsStatus }) => {
+      return await api.transactions.updateLogistics(id, { status });
+    },
+    onSuccess: () => {
+      // Invalidate and refetch the transactions list
+      queryClient.invalidateQueries({ queryKey: ['crm-transactions'] });
+      toast({
+        title: 'Status atualizado com sucesso',
+        description: 'O status logístico da encomenda foi atualizado.',
+        className: 'border-[#00FF41] bg-[rgba(0,255,65,0.1)] text-[#00FF41]',
+      });
+    },
+    onError: (error: NexFlowXAPIError) => {
+      toast({
+        title: 'Erro ao atualizar status',
+        description: error.message || 'Ocorreu um erro ao tentar atualizar o status.',
+        variant: 'destructive',
+      });
+    },
   });
 
   // Transform transactions into CRM entries
@@ -155,6 +204,11 @@ export default function CRMPage() {
     delivered: filteredEntries.filter((e) => e.logisticsStatus === 'delivered').length,
   };
 
+  // Handle logistics status update
+  const handleUpdateLogistics = (id: string, status: LogisticsStatus) => {
+    updateLogisticsMutation.mutate({ id, status });
+  };
+
   // ─── RENDER ───────────────────────────────────────────────────────────
 
   return (
@@ -176,7 +230,7 @@ export default function CRMPage() {
         <div className="cyber-panel p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] cyber-mono text-[#555566] mb-1">PROCESSAMENTO</p>
+              <p className="text-[10px] cyber-mono text-[#555566] mb-1">EM PROCESSAMENTO</p>
               <p className="text-2xl font-bold text-[#FFB800]">{stats.processing}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-[rgba(255,184,0,0.1)] border border-[rgba(255,184,0,0.2)] flex items-center justify-center">
@@ -192,7 +246,7 @@ export default function CRMPage() {
               <p className="text-2xl font-bold text-[#00F0FF]">{stats.shipped}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-[rgba(0,240,255,0.1)] border border-[rgba(0,240,255,0.2)] flex items-center justify-center">
-              <Globe className="w-5 h-5 text-[#00F0FF]" />
+              <Truck className="w-5 h-5 text-[#00F0FF]" />
             </div>
           </div>
         </div>
@@ -204,7 +258,7 @@ export default function CRMPage() {
               <p className="text-2xl font-bold text-[#00FF41]">{stats.delivered}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-[rgba(0,255,65,0.1)] border border-[rgba(0,255,65,0.2)] flex items-center justify-center">
-              <Package className="w-5 h-5 text-[#00FF41]" />
+              <CheckCircle2 className="w-5 h-5 text-[#00FF41]" />
             </div>
           </div>
         </div>
@@ -302,7 +356,13 @@ export default function CRMPage() {
                     VALOR
                   </TableHead>
                   <TableHead className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-center">
-                    STATUS
+                    STATUS DO PAGAMENTO
+                  </TableHead>
+                  <TableHead className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-center">
+                    STATUS LOGÍSTICO
+                  </TableHead>
+                  <TableHead className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-center">
+                    AÇÕES
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -341,14 +401,74 @@ export default function CRMPage() {
                       {formatAmount(entry.amount, entry.currency)}
                     </TableCell>
                     <TableCell className="text-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] cyber-mono font-medium ${
+                          entry.status === 'completed'
+                            ? 'text-[#00FF41] border-[rgba(0,255,65,0.3)] bg-[rgba(0,255,65,0.1)]'
+                            : entry.status === 'failed'
+                            ? 'text-[#FF0040] border-[rgba(255,0,64,0.3)] bg-[rgba(255,0,64,0.1)]'
+                            : entry.status === 'pending'
+                            ? 'text-[#FFB800] border-[rgba(255,184,0,0.3)] bg-[rgba(255,184,0,0.1)]'
+                            : 'text-[#00F0FF] border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.1)]'
+                        }`}
+                      >
+                        {entry.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
                       {entry.logisticsStatus && (
                         <Badge
                           variant={getLogisticsBadgeVariant(entry.logisticsStatus)}
                           className={`text-[10px] cyber-mono font-medium ${getLogisticsStatusColor(entry.logisticsStatus)}`}
                         >
-                          {getLogisticsStatusLabel(entry.logisticsStatus)}
+                          <span className="flex items-center gap-1.5">
+                            {getLogisticsStatusIcon(entry.logisticsStatus)}
+                            {getLogisticsStatusLabel(entry.logisticsStatus)}
+                          </span>
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="p-1.5 rounded-md hover:bg-[rgba(0,255,65,0.1)] text-[#555566] hover:text-[#00FF41] transition-all duration-200"
+                            disabled={updateLogisticsMutation.isPending}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="bg-[#12121A] border-[rgba(51,51,51,0.5)] min-w-[200px]"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateLogistics(entry.id, 'processing')}
+                            className="text-xs cyber-mono text-[#E0E0E8] hover:bg-[rgba(255,184,0,0.1)] hover:text-[#FFB800] cursor-pointer"
+                            disabled={updateLogisticsMutation.isPending}
+                          >
+                            <Package2 className="w-3.5 h-3.5 mr-2 text-[#FFB800]" />
+                            Marcar como Em Processamento
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateLogistics(entry.id, 'shipped')}
+                            className="text-xs cyber-mono text-[#E0E0E8] hover:bg-[rgba(0,240,255,0.1)] hover:text-[#00F0FF] cursor-pointer"
+                            disabled={updateLogisticsMutation.isPending}
+                          >
+                            <Truck className="w-3.5 h-3.5 mr-2 text-[#00F0FF]" />
+                            Marcar como Enviado
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateLogistics(entry.id, 'delivered')}
+                            className="text-xs cyber-mono text-[#E0E0E8] hover:bg-[rgba(0,255,65,0.1)] hover:text-[#00FF41] cursor-pointer"
+                            disabled={updateLogisticsMutation.isPending}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-[#00FF41]" />
+                            Marcar como Entregue
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

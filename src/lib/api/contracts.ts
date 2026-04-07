@@ -21,6 +21,8 @@ export type TransactionStatus =
   | 'completed'
   | 'failed';
 
+export type LogisticsStatus = 'processing' | 'shipped' | 'delivered';
+
 export type PipelineStageId =
   | 'gateway_confirmed'
   | 'holding_provider'
@@ -108,6 +110,7 @@ export interface Transaction {
   external_id?: string;
   type: TransactionType;
   status: TransactionStatus;
+  logistics_status?: LogisticsStatus;
   amount: number;
   net_amount?: number;
   fee_amount?: number;
@@ -146,6 +149,15 @@ export interface UpdateStatusRequest {
 }
 
 export interface UpdateStatusResponse {
+  success: boolean;
+  data: Transaction;
+}
+
+export interface UpdateLogisticsRequest {
+  status: LogisticsStatus;
+}
+
+export interface UpdateLogisticsResponse {
   success: boolean;
   data: Transaction;
 }

@@ -16,6 +16,8 @@ import type {
   Transaction,
   UpdateStatusRequest,
   UpdateStatusResponse,
+  UpdateLogisticsRequest,
+  UpdateLogisticsResponse,
   CreatePaymentLinkRequest,
   CreatePaymentLinkResponse,
   PaymentLinksResponse,
@@ -144,6 +146,16 @@ export const transactions = {
     data: UpdateStatusRequest
   ): Promise<UpdateStatusResponse> {
     return request(`/transactions/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateLogistics(
+    id: string,
+    data: UpdateLogisticsRequest
+  ): Promise<UpdateLogisticsResponse> {
+    return request(`/transactions/${id}/logistics`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
