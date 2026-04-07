@@ -1,0 +1,417 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Link2,
+  Copy,
+  Check,
+  X,
+  ExternalLink,
+  Euro,
+  Loader2,
+  CheckCircle2,
+} from 'lucide-react';
+import { api, NexFlowXAPIError } from '@/lib/api/client';
+import type { PaymentLink } from '@/lib/api/contracts';
+import {
+  systemStateMock,
+  statusColorMap,
+  type SystemStateEntry,
+} from '@/lib/mock-system-state';
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────
+
+const CURRENCIES = [
+  { code: 'EUR', symbol: '€', label: 'Euro' },
+  { code: 'USD', symbol: '$', label: 'Dólar Americano' },
+  { code: 'GBP', symbol: '£', label: 'Libra Esterlina' },
+  { code: 'BRL', symbol: 'R$', label: 'Real Brasileiro' },
+  { code: 'KES', symbol: 'KSh', label: 'Xelim Queniano' },
+  { code: 'NGN', symbol: '₦', label: 'Naira Nigeriana' },
+] as const;
+
+const CHECKOUT_BASE_URL = 'https://pay.nexflowx.tech';
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────
+
+/** Get the currency symbol for display in the input */
+function getCurrencySymbol(code: string): string {
+  return CURRENCIES.find((c) => c.code === code)?.symbol ?? '€';
+}
+
+/** Rail status color */
+function railStatusColor(entry: SystemStateEntry): string {
+  if (entry.availability_status === 'CRITICAL') return '#FF0040';
+  if (entry.availability_status === 'LIMITED') return '#FF8C00';
+  if (entry.availability_status === 'INTEGRATION_IN_PROGRESS') return '#FFD600';
+  return '#00FF41';
+}
+
+/** Copy text to clipboard with fallback */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────
+
+export default function PaymentLinkGenerator() {
+  // Form state
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('EUR');
+  const [description, setDescription] = useState('');
+
+  // Creation state
+  const [isCreating, setIsCreating] = useState(false);
+  const [creationError, setCreationError] = useState<string | null>(null);
+
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [createdLink, setCreatedLink] = useState<PaymentLink | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedSocial, setCopiedSocial] = useState(false);
+
+  // ─── Derived ──────────────────────────────────────────────────────────
+
+  const parsedAmount = parseFloat(amount.replace(',', '.'));
+  const currencySymbol = getCurrencySymbol(currency);
+
+  // Get all unique rails (deduplicated by payment_method name, keep first occurrence)
+  const uniqueRails: SystemStateEntry[] = [];
+  const seenMethods = new Set<string>();
+  for (const entry of systemStateMock) {
+    if (!seenMethods.has(entry.payment_method)) {
+      seenMethods.add(entry.payment_method);
+      uniqueRails.push(entry);
+    }
+  }
+
+  // ─── Handlers ─────────────────────────────────────────────────────────
+
+  const handleCreateLink = async () => {
+    if (!parsedAmount || parsedAmount <= 0) return;
+
+    setIsCreating(true);
+    setCreationError(null);
+
+    try {
+      const response = await api.paymentLinks.create({
+        amount: parsedAmount,
+        currency: currency,
+        description: description.trim() || undefined,
+      });
+
+      const newLink = response.data;
+      setCreatedLink(newLink);
+      setShowModal(true);
+
+      // Auto-open the checkout URL in a new tab
+      const checkoutUrl = `${CHECKOUT_BASE_URL}/${newLink.id}`;
+      window.open(checkoutUrl, '_blank');
+
+      // Clear form
+      setAmount('');
+      setDescription('');
+    } catch (err) {
+      if (err instanceof NexFlowXAPIError) {
+        setCreationError(err.message);
+      } else {
+        setCreationError('Erro ao criar link. Tenta novamente.');
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!createdLink) return;
+    const url = `${CHECKOUT_BASE_URL}/${createdLink.id}`;
+    await copyToClipboard(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleCopySocial = async () => {
+    if (!createdLink) return;
+    const url = `${CHECKOUT_BASE_URL}/${createdLink.id}`;
+    const message = `Pague agora: ${url}`;
+    await copyToClipboard(message);
+    setCopiedSocial(true);
+    setTimeout(() => setCopiedSocial(false), 2000);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setCopiedLink(false);
+    setCopiedSocial(false);
+  };
+
+  // ─── Render ─────────────────────────────────────────────────────────
+
+  return (
+    <>
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* ═══ Generator Panel ═══ */}
+        <div className="cyber-panel p-6 border border-[rgba(0,255,65,0.15)]">
+          <div className="flex items-center gap-2 mb-5">
+            <Link2 className="w-4 h-4 text-[#00FF41]" />
+            <h3 className="text-sm font-semibold text-[#E0E0E8]">
+              Gerar Link de Pagamento
+            </h3>
+          </div>
+
+          <div className="space-y-4">
+            {/* ── Amount Input ── */}
+            <div>
+              <label className="block text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
+                VALOR DO PAGAMENTO
+              </label>
+              <div className="relative">
+                <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555566]" />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0,00"
+                  className="cyber-input w-full pl-10 pr-16 py-2.5 rounded-lg text-lg cyber-mono text-[#E0E0E8]"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm cyber-mono text-[#555566]">
+                  {currencySymbol}
+                </span>
+              </div>
+            </div>
+
+            {/* ── Currency Select ── */}
+            <div>
+              <label className="block text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
+                MOEDA
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm cyber-mono text-[#E0E0E8] appearance-none cursor-pointer"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} — {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* ── Description Input ── */}
+            <div>
+              <label className="block text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
+                DESCRIÇÃO{' '}
+                <span className="text-[#444455]">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ex: Fatura #2024-001"
+                className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
+              />
+            </div>
+
+            {/* ── Error Feedback ── */}
+            {creationError && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-[rgba(255,0,64,0.06)] border border-[rgba(255,0,64,0.25)]">
+                <X className="w-3.5 h-3.5 text-[#FF0040] shrink-0 mt-0.5" />
+                <p className="text-[11px] text-[#FF0040]">{creationError}</p>
+              </div>
+            )}
+
+            {/* ── Generate Button ── */}
+            <button
+              onClick={handleCreateLink}
+              disabled={!parsedAmount || parsedAmount <= 0 || isCreating}
+              className={`cyber-btn-primary w-full flex items-center justify-center gap-2 py-2.5 rounded-lg
+                text-sm font-medium cyber-mono transition-all duration-200
+                ${!parsedAmount || parsedAmount <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>A gerar link...</span>
+                </>
+              ) : (
+                <>
+                  <Link2 className="w-4 h-4" />
+                  <span>Gerar Link de Pagamento</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* ═══ Rails Available (Badges) ═══ */}
+        <div className="cyber-panel p-4 border border-[rgba(0,240,255,0.12)]">
+          <label className="block text-[10px] cyber-mono text-[#555566] mb-2.5 tracking-wider">
+            TRILHOS DISPONÍVEIS
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {uniqueRails.map((rail) => {
+              const color = railStatusColor(rail);
+              const cfg = statusColorMap[rail.availability_status];
+              return (
+                <span
+                  key={rail.payment_method}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] cyber-mono"
+                  style={{
+                    borderColor: `${color}44`,
+                    backgroundColor: `${color}0A`,
+                    color: color,
+                  }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span>{rail.payment_method}</span>
+                  <span className="text-[8px] opacity-60">{cfg.label}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ Success Modal ═══ */}
+      {showModal && createdLink && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={handleCloseModal}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.7)] backdrop-blur-sm" />
+
+          {/* Modal content */}
+          <div
+            className="relative w-full max-w-md rounded-xl border border-[rgba(0,255,65,0.25)] bg-[#12121A] p-6 shadow-[0_0_40px_rgba(0,255,65,0.08)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={handleCloseModal}
+              className="absolute top-4 right-4 p-1 rounded-md text-[#555566] hover:text-[#E0E0E8] hover:bg-[rgba(255,255,255,0.05)] transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Success icon + title */}
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-14 h-14 rounded-full bg-[rgba(0,255,65,0.1)] border border-[rgba(0,255,65,0.3)] flex items-center justify-center mb-3">
+                <CheckCircle2 className="w-7 h-7 text-[#00FF41]" />
+              </div>
+              <h2 className="text-lg font-semibold text-[#E0E0E8]">
+                Link Criado com Sucesso!
+              </h2>
+              <p className="text-xs text-[#888899] mt-1">
+                O checkout foi aberto numa nova aba
+              </p>
+            </div>
+
+            {/* Checkout URL display */}
+            <div className="mb-4">
+              <label className="block text-[9px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
+                CHECKOUT URL
+              </label>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-[rgba(10,10,14,0.6)] border border-[rgba(51,51,51,0.4)]">
+                <ExternalLink className="w-3.5 h-3.5 text-[#00F0FF] shrink-0" />
+                <code className="flex-1 text-xs cyber-mono text-[#00F0FF] truncate">
+                  {CHECKOUT_BASE_URL}/{createdLink.id}
+                </code>
+              </div>
+            </div>
+
+            {/* Amount + Currency info */}
+            <div className="flex items-center justify-center gap-4 mb-5 text-[11px] cyber-mono text-[#888899]">
+              <span>
+                Valor:{' '}
+                <span className="text-[#E0E0E8]">
+                  {parsedAmount.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  {currency}
+                </span>
+              </span>
+              {createdLink.short_code && (
+                <span>
+                  Código:{' '}
+                  <span className="text-[#E0E0E8]">{createdLink.short_code}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2.5">
+              {/* Copy link */}
+              <button
+                onClick={handleCopyLink}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium cyber-mono transition-all duration-200 border border-[rgba(0,255,65,0.3)] bg-[rgba(0,255,65,0.06)] text-[#00FF41] hover:bg-[rgba(0,255,65,0.12)]"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Copiar Link</span>
+                  </>
+                )}
+              </button>
+
+              {/* Copy social message */}
+              <button
+                onClick={handleCopySocial}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium cyber-mono transition-all duration-200 border border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.06)] text-[#00F0FF] hover:bg-[rgba(0,240,255,0.12)]"
+              >
+                {copiedSocial ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Copiar para Redes Sociais</span>
+                  </>
+                )}
+              </button>
+
+              {/* Close */}
+              <button
+                onClick={handleCloseModal}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm cyber-mono transition-all duration-200 border border-[rgba(51,51,51,0.5)] bg-[rgba(10,10,14,0.4)] text-[#888899] hover:text-[#E0E0E8] hover:border-[rgba(51,51,51,0.8)]"
+              >
+                <X className="w-4 h-4" />
+                <span>Fechar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
