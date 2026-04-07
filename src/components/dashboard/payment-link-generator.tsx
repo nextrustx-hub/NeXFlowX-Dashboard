@@ -127,7 +127,7 @@ export default function PaymentLinkGenerator() {
 
   const handleCopyLink = async () => {
     if (!createdLink) return;
-    const url = `${CHECKOUT_BASE_URL}/${createdLink.id}`;
+    const url = createdLink.shareable_url;
     const success = await copyToClipboard(url);
     if (success) {
       setCopiedLink(true);

@@ -203,6 +203,7 @@ export interface APIKey {
   id: string;
   name: string;
   key_prefix: string;
+  key_hash?: string;       // returned by GET /api-keys
   key_full?: string;       // only on creation
   environment: KeyEnvironment;
   status: KeyStatus;
