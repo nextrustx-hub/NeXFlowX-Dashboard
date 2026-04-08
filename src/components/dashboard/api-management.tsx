@@ -574,7 +574,7 @@ console.log("Checkout URL:", data.data.shareable_url);`;
   }
 }`;
 
-  const embeddedCheckoutCode = \`<div style="width: 100%; max-width: 450px; margin: 0 auto;">
+  const embeddedCheckoutCode = `<div style="width: 100%; max-width: 450px; margin: 0 auto;">
 <iframe
 src="SHAREABLE_URL_AQUI"
 style="width: 100%; height: 600px; border: none; border-radius: 12px;"
@@ -591,9 +591,9 @@ console.log('Pagamento efetuado. ID da Transação:', event.data.txId);
 window.location.href = '/sucesso';
 }
 });
-</script>\`;
+</script>`;
 
-  const webhookPayloadCode = \`{
+  const webhookPayloadCode = `{
   "event": "payment.gateway_confirmed",
   "transaction_id": "cmnfrzh...tx123",
   "store_id": "cmnabc...store99",
@@ -608,7 +608,7 @@ window.location.href = '/sucesso';
     "product": "Câmara de Segurança 4K",
     "order_id": "LX-998822"
   }
-}\`;
+}`;
 
   /* ── Required Badge ── */
   const reqBadge = (
