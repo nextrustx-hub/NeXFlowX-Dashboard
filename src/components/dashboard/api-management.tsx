@@ -495,10 +495,9 @@ function ApiDocsTab() {
 
   const sections: DocSection[] = [
     { id: 'auth', number: '1', label: 'Autenticação', icon: <Shield className="w-3.5 h-3.5" /> },
-    { id: 'flows', number: '2', label: 'Fluxos de Integração', icon: <Route className="w-3.5 h-3.5" /> },
-    { id: 'endpoint', number: '3', label: 'Referência da API', icon: <FileJson className="w-3.5 h-3.5" /> },
-    { id: 'sdk', number: '4', label: 'Guia SDK Frontend', icon: <Code2 className="w-3.5 h-3.5" /> },
-    { id: 'webhooks', number: '5', label: 'Pós-Pagamento & Webhooks', icon: <Webhook className="w-3.5 h-3.5" /> },
+    { id: 'endpoint', number: '2', label: 'Criar Link de Pagamento', icon: <FileJson className="w-3.5 h-3.5" /> },
+    { id: 'sdk', number: '3', label: 'Embutir no Site (Iframe)', icon: <LayoutTemplate className="w-3.5 h-3.5" /> },
+    { id: 'webhooks', number: '4', label: 'Webhooks', icon: <Webhook className="w-3.5 h-3.5" /> },
   ];
 
   const scrollToSection = (id: string) => {
@@ -541,7 +540,11 @@ function ApiDocsTab() {
   -d '{
     "amount": 250.00,
     "currency": "EUR",
-    "description": "Fatura #4091 - Subscrição Anual"
+    "store_name": "Securfix",
+    "metadata": {
+      "product": "Câmara de Segurança 4K",
+      "order_id": "LX-998822"
+    }
   }'`;
 
   const jsPaymentLinks = `const response = await fetch("${BASE_URL}/payment-links", {
@@ -553,7 +556,11 @@ function ApiDocsTab() {
   body: JSON.stringify({
     amount: 250.00,
     currency: "EUR",
-    description: "Fatura #4091 - Subscrição Anual"
+    store_name: "Securfix",
+    metadata: {
+      product: "Câmara de Segurança 4K",
+      order_id": "LX-998822"
+    }
   })
 });
 
@@ -562,51 +569,46 @@ console.log("Checkout URL:", data.data.shareable_url);`;
 
   const responsePaymentLinks = `{
   "data": {
-    "id": "cmnf9h6yd0000zvhklp5nbhxg",
-    "shareable_url": "https://pay.nexflowx.tech/cmnf9h6yd0000zvhklp5nbhxg"
+    "id": "cmnfrz...tx123",
+    "shareable_url": "https://pay.nexflowx.tech/cmnfrz...tx123"
   }
 }`;
 
-  const sdkImportCode = `<script src="${BASE_URL.replace('/api/v1', '')}/sdk.js"></script>`;
-
-  const sdkInitCode = `<!-- Container do Checkout -->
-<div id="nexflowx-checkout-container"></div>
+  const embeddedCheckoutCode = \`<div style="width: 100%; max-width: 450px; margin: 0 auto;">
+<iframe
+src="SHAREABLE_URL_AQUI"
+style="width: 100%; height: 600px; border: none; border-radius: 12px;"
+allow="payment">
+</iframe>
+</div>
 
 <script>
-  // Inicializa o cliente com a sua chave
-  const nexflow = NexFlowX('${activeApiKeyValue}');
+// Escutar o sucesso do pagamento
+window.addEventListener('message', function(event) {
+if (event.origin !== 'https://www.google.com/search?q=https://checkout.nexflowx.tech') return;
+if (event.data.status === 'success') {
+console.log('Pagamento efetuado. ID da Transação:', event.data.txId);
+window.location.href = '/sucesso';
+}
+});
+</script>\`;
 
-  async function iniciarPagamento() {
-    // 1. Gera a transação dinamicamente
-    const checkout = await nexflow.checkout({
-      amount: 250.00,
-      currency: "EUR",
-      description: "Fatura #4091"
-    });
-
-    // 2. Monta o Iframe na sua página
-    //    URL do checkout: https://pay.nexflowx.tech/{id}
-    await checkout.mount('#nexflowx-checkout-container');
+  const webhookPayloadCode = \`{
+  "event": "payment.gateway_confirmed",
+  "transaction_id": "cmnfrzh...tx123",
+  "store_id": "cmnabc...store99",
+  "amount": "250.00",
+  "net_amount": "246.50",
+  "method": "card",
+  "currency": "EUR",
+  "country": "PT",
+  "customer_email": "cliente@email.com",
+  "logistics_status": "processing",
+  "customer_details": {
+    "product": "Câmara de Segurança 4K",
+    "order_id": "LX-998822"
   }
-
-  // Chamar ao clicar no botão de compra
-  document.getElementById('botao-pagar')
-    .addEventListener('click', iniciarPagamento);
-</script>`;
-
-  const webhookPayloadCode = `// POST para o seu endpoint
-// Content-Type: application/json
-
-{
-  "event": "transaction.confirmed",
-  "data": {
-    "id": "cmnf9h6yd0000zvhklp5nbhxg",
-    "amount": 250.00,
-    "currency": "EUR",
-    "status": "confirmed",
-    "paid_at": "2025-01-15T14:32:00Z"
-  }
-}`;
+}\`;
 
   /* ── Required Badge ── */
   const reqBadge = (
@@ -748,72 +750,7 @@ console.log("Checkout URL:", data.data.shareable_url);`;
           </section>
 
           {/* ════════════════════════════════════════
-             SECTION 2: FLUXOS DE INTEGRAÇÃO
-             ════════════════════════════════════════ */}
-          <section id="docs-flows" className="space-y-4">
-            <div className="flex items-center gap-2.5 mb-1">
-              <div className="p-1.5 rounded-lg bg-[rgba(191,64,255,0.08)]">
-                <Route className="w-4 h-4 text-[#BF40FF]" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-[#E0E0E8]">2. Fluxos de Integração</h4>
-                <p className="text-[10px] text-[#555566]">Duas vias, dependendo do controlo de UX pretendido</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Option A: Hosted Checkout */}
-              <div className="cyber-panel p-5 border border-[rgba(0,255,65,0.12)] hover:border-[rgba(0,255,65,0.3)] transition-colors">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="p-1.5 rounded-lg bg-[rgba(0,255,65,0.08)]">
-                    <ExternalLink className="w-4 h-4 text-[#00FF41]" />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-semibold text-[#E0E0E8]">Opção A — Hosted Checkout</h5>
-                    <Badge className="text-[8px] mt-0.5" style={{ backgroundColor: 'rgba(0,255,65,0.1)', color: '#00FF41', border: '1px solid rgba(0,255,65,0.25)' }}>
-                      Redirecionamento
-                    </Badge>
-                  </div>
-                </div>
-                <p className="text-[11px] text-[#888899] leading-relaxed mb-3">
-                  A abordagem mais rápida. O seu servidor cria a transação e{' '}
-                  <span className="text-[#00FF41] font-medium">redireciona o utilizador</span>{' '}
-                  para a página de checkout segura, gerida pela infraestrutura NeXFlowX.
-                </p>
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[rgba(10,10,14,0.4)] border border-[rgba(51,51,51,0.2)]">
-                  <span className="text-[9px] cyber-mono text-[#555566]">Fluxo:</span>
-                  <code className="text-[9px] text-[#00F0FF]">POST → URL → redirect</code>
-                </div>
-              </div>
-
-              {/* Option B: Embedded Checkout */}
-              <div className="cyber-panel p-5 border border-[rgba(191,64,255,0.12)] hover:border-[rgba(191,64,255,0.3)] transition-colors">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="p-1.5 rounded-lg bg-[rgba(191,64,255,0.08)]">
-                    <LayoutTemplate className="w-4 h-4 text-[#BF40FF]" />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-semibold text-[#E0E0E8]">Opção B — Embedded Checkout</h5>
-                    <Badge className="text-[8px] mt-0.5" style={{ backgroundColor: 'rgba(191,64,255,0.1)', color: '#BF40FF', border: '1px solid rgba(191,64,255,0.25)' }}>
-                      JS SDK / Iframe
-                    </Badge>
-                  </div>
-                </div>
-                <p className="text-[11px] text-[#888899] leading-relaxed mb-3">
-                  Experiência nativa onde o utilizador{' '}
-                  <span className="text-[#BF40FF] font-medium">nunca sai do seu website</span>.{' '}
-                  O checkout é renderizado diretamente na sua interface através do SDK frontend.
-                </p>
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[rgba(10,10,14,0.4)] border border-[rgba(51,51,51,0.2)]">
-                  <span className="text-[9px] cyber-mono text-[#555566]">Fluxo:</span>
-                  <code className="text-[9px] text-[#BF40FF]">SDK → checkout → mount</code>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ════════════════════════════════════════
-             SECTION 3: REFERÊNCIA DA API (ENDPOINTS)
+             SECTION 2: CRIAR LINK DE PAGAMENTO
              ════════════════════════════════════════ */}
           <section id="docs-endpoint" className="cyber-panel p-5">
             <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-[rgba(51,51,51,0.3)]">
@@ -881,14 +818,27 @@ console.log("Checkout URL:", data.data.shareable_url);`;
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-[rgba(10,10,14,0.3)] border border-[rgba(51,51,51,0.2)]">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <code className="text-[11px] text-[#E0E0E8] font-medium">description</code>
+                        <code className="text-[11px] text-[#E0E0E8] font-medium">store_name</code>
                         {optBadge}
                       </div>
                       <p className="text-[10px] text-[#555566]">
-                        <span className="text-[#888899]">String</span> — Referência interna ou descrição do pedido para efeitos de reconciliação.
+                        <span className="text-[#888899]">String</span> — Nome da loja para aplicar branding dinâmico (ex: <code className="text-[#00F0FF]">&quot;Securfix&quot;</code>).
                       </p>
                     </div>
                     <code className="text-[11px] text-[#FFB800] shrink-0 cyber-mono w-20 text-right">String?</code>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-[rgba(10,10,14,0.3)] border border-[rgba(51,51,51,0.2)]">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <code className="text-[11px] text-[#E0E0E8] font-medium">metadata</code>
+                        {optBadge}
+                      </div>
+                      <p className="text-[10px] text-[#555566]">
+                        <span className="text-[#888899]">Object</span> — Dados extra do cliente/encomenda (ex: product, order_id).
+                      </p>
+                    </div>
+                    <code className="text-[11px] text-[#FFB800] shrink-0 cyber-mono w-20 text-right">Object?</code>
                   </div>
                 </div>
               </div>
@@ -932,70 +882,63 @@ console.log("Checkout URL:", data.data.shareable_url);`;
           </section>
 
           {/* ════════════════════════════════════════
-             SECTION 4: GUIA SDK FRONTEND
+             SECTION 3: EMBEBIR NO SITE (IFRAME)
              ════════════════════════════════════════ */}
           <section id="docs-sdk" className="cyber-panel p-5">
             <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-[rgba(51,51,51,0.3)]">
               <div className="p-1.5 rounded-lg bg-[rgba(191,64,255,0.08)]">
-                <Code2 className="w-4 h-4 text-[#BF40FF]" />
+                <LayoutTemplate className="w-4 h-4 text-[#BF40FF]" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-[#E0E0E8]">4. Guia de Implementação — SDK Frontend</h4>
-                <p className="text-[10px] text-[#555566]">Embedded Checkout (Opção B) — renderize o checkout na sua página</p>
+                <h4 className="text-sm font-semibold text-[#E0E0E8]">4. Embutir no Site (Iframe)</h4>
+                <p className="text-[10px] text-[#555566]">Integre o checkout diretamente na sua página com Iframe</p>
               </div>
-              <Badge className="ml-auto text-[9px]" style={{ backgroundColor: 'rgba(191,64,255,0.1)', color: '#BF40FF', border: '1px solid rgba(191,64,255,0.25)' }}>
-                OPÇÃO B
-              </Badge>
             </div>
 
             <div className="space-y-4 text-xs text-[#888899] leading-relaxed">
-              {/* Step 1 */}
+              <p>
+                Para uma experiência nativa onde o utilizador nunca sai do seu website, pode embutir o checkout
+                usando um <code className="text-[#BF40FF]">&lt;iframe&gt;</code>. O checkout enviará mensagens via
+                <code className="text-[#BF40FF]">postMessage</code> para notificar quando o pagamento for concluído.
+              </p>
+
+              <div className="p-3 rounded-lg border border-[rgba(191,64,255,0.15)] bg-[rgba(191,64,255,0.04)]">
+                <div className="flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-[#BF40FF] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[11px] font-medium text-[#BF40FF]">Instruções</p>
+                    <p className="text-[10px] text-[#888899] mt-0.5">
+                      Substitua <code className="text-[#BF40FF]">SHAREABLE_URL_AQUI</code> pela URL devolvida no POST /payment-links
+                      (campo <code className="text-[#BF40FF]">shareable_url</code> da resposta).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Code block */}
               <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold cyber-mono bg-[rgba(0,240,255,0.1)] text-[#00F0FF] border border-[rgba(0,240,255,0.2)]">
-                    1
-                  </span>
-                  <h5 className="text-[11px] font-semibold text-[#E0E0E8]">Importar o SDK NeXFlowX</h5>
+                <div className="flex items-center gap-2 mb-2">
+                  <Code2 className="w-3.5 h-3.5 text-[#00FF41]" />
+                  <span className="text-[10px] cyber-mono text-[#555566] tracking-wider">CÓDIGO DE INTEGRAÇÃO</span>
                 </div>
-                <p className="text-[10px] text-[#555566] mb-2 ml-8.5">
-                  Adicione o script ao <code className="text-[#BF40FF]">&lt;head&gt;</code> ou final do <code className="text-[#BF40FF]">&lt;body&gt;</code> do seu website:
-                </p>
-                <div className="ml-8.5">
-                  <CodeBlock language="html" filename="index.html" code={sdkImportCode} />
-                </div>
+                <CodeBlock language="html" filename="checkout-iframe.html" code={embeddedCheckoutCode} />
+              </div>
 
-                {/* Step 2 */}
-                <div className="mt-4">
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold cyber-mono bg-[rgba(0,240,255,0.1)] text-[#00F0FF] border border-[rgba(0,240,255,0.2)]">
-                      2
-                    </span>
-                    <h5 className="text-[11px] font-semibold text-[#E0E0E8]">Inicializar e Montar o Checkout</h5>
+              {/* Event explanation */}
+              <div className="p-3 rounded-lg bg-[rgba(10,10,14,0.4)] border border-[rgba(51,51,51,0.3)]">
+                <p className="text-[10px] cyber-mono text-[#555566] mb-2 tracking-wider">EVENTO DE SUCESSO</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#00FF41] w-32 shrink-0">event.data.status</code>
+                    <span className="text-[10px] text-[#555566]">— Será <code className="text-[#00FF41]">&quot;success&quot;</code> quando o pagamento for confirmado</span>
                   </div>
-                  <p className="text-[10px] text-[#555566] mb-2 ml-8.5">
-                    Crie um contentor HTML onde o formulário será injetado e utilize o SDK para iniciar a transação:
-                  </p>
-                  <div className="ml-8.5">
-                    <CodeBlock language="html" filename="checkout.js" code={sdkInitCode} />
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#00F0FF] w-32 shrink-0">event.data.txId</code>
+                    <span className="text-[10px] text-[#555566]">— ID da transação confirmada</span>
                   </div>
-                </div>
-
-                {/* SDK method reference */}
-                <div className="p-3 rounded-lg bg-[rgba(10,10,14,0.4)] border border-[rgba(51,51,51,0.3)] mt-4">
-                  <p className="text-[10px] cyber-mono text-[#555566] mb-2 tracking-wider">MÉTODOS DO SDK</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <code className="text-[10px] text-[#BF40FF] w-40 shrink-0">NexFlowX(key)</code>
-                      <span className="text-[10px] text-[#555566]">— Inicializa o cliente</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="text-[10px] text-[#00F0FF] w-40 shrink-0">.checkout(params)</code>
-                      <span className="text-[10px] text-[#555566]">— Gera a transação</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="text-[10px] text-[#00FF41] w-40 shrink-0">.mount(selector)</code>
-                      <span className="text-[10px] text-[#555566]">— Renderiza o iframe</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#FFB800] w-32 shrink-0">event.origin</code>
+                    <span className="text-[10px] text-[#555566]">— Valide sempre o origin antes de processar a mensagem</span>
                   </div>
                 </div>
               </div>
@@ -1003,7 +946,7 @@ console.log("Checkout URL:", data.data.shareable_url);`;
           </section>
 
           {/* ════════════════════════════════════════
-             SECTION 5: PÓS-PAGAMENTO & WEBHOOKS
+             SECTION 4: WEBHOOKS (NOTIFICAÇÕES SERVER-TO-SERVER)
              ════════════════════════════════════════ */}
           <section id="docs-webhooks" className="cyber-panel p-5">
             <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-[rgba(51,51,51,0.3)]">
@@ -1011,74 +954,83 @@ console.log("Checkout URL:", data.data.shareable_url);`;
                 <Webhook className="w-4 h-4 text-[#FFB800]" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-[#E0E0E8]">5. Pós-Pagamento & Webhooks</h4>
-                <p className="text-[10px] text-[#555566]">Notificações em tempo real para o seu backend</p>
+                <h4 className="text-sm font-semibold text-[#E0E0E8]">5. Webhooks (Notificações Server-to-Server)</h4>
+                <p className="text-[10px] text-[#555566]">Receba confirmações de pagamento no seu backend</p>
               </div>
             </div>
 
             <div className="space-y-4 text-xs text-[#888899] leading-relaxed">
               <p>
-                Após o pagamento ser processado com sucesso, o cliente visualizará a nossa página de confirmação.
-                Para que o seu sistema (Backend) seja notificado em tempo real de que o pagamento foi liquidado,
-                a nossa equipa irá configurar um Webhook a apontar para o seu servidor.
+                Após o pagamento ser processado com sucesso, o NeXFlowX envia automaticamente uma notificação
+                para o seu endpoint via Webhook. Esta notificação é assinada com HMAC-SHA256 para garantir a
+                autenticidade da mensagem.
               </p>
 
               {/* Event info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-[rgba(10,10,14,0.5)] border border-[rgba(51,51,51,0.3)]">
-                  <p className="text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">EVENTO DISPARADO</p>
+                  <p className="text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">EVENTO ENVIADO</p>
                   <code className="text-[11px] text-[#00FF41] px-1.5 py-0.5 rounded bg-[rgba(0,255,65,0.08)] border border-[rgba(0,255,65,0.2)]">
-                    transaction.confirmed
+                    payment.gateway_confirmed
                   </code>
                 </div>
                 <div className="p-3 rounded-lg bg-[rgba(10,10,14,0.5)] border border-[rgba(51,51,51,0.3)]">
-                  <p className="text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">REQUISITO</p>
-                  <p className="text-[10px] text-[#E0E0E8]">Fornecer URL do endpoint ao gestor de conta NeXFlowX</p>
+                  <p className="text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">MÉTODO</p>
+                  <code className="text-[11px] text-[#00F0FF]">POST (application/json)</code>
                 </div>
               </div>
 
-              {/* Webhook URL example */}
-              <div className="p-3 rounded-lg bg-[rgba(10,10,14,0.5)] border border-[rgba(51,51,51,0.3)]">
-                <p className="text-[10px] cyber-mono text-[#555566] mb-2 tracking-wider">EXEMPLO DE WEBHOOK URL</p>
-                <code className="text-[11px] text-[#00F0FF] break-all">
-                  https://api.sua-empresa.com/webhooks/nexflowx
-                </code>
-              </div>
-
-              {/* Info box */}
-              <div className="p-3 rounded-lg border border-[rgba(0,240,255,0.15)] bg-[rgba(0,240,255,0.04)]">
+              {/* Security info */}
+              <div className="p-3 rounded-lg border border-[rgba(255,184,0,0.15)] bg-[rgba(255,184,0,0.04)]">
                 <div className="flex items-start gap-2">
-                  <Info className="w-3.5 h-3.5 text-[#00F0FF] shrink-0 mt-0.5" />
+                  <Lock className="w-3.5 h-3.5 text-[#FFB800] shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[11px] font-medium text-[#00F0FF]">Configuração do Webhook</p>
+                    <p className="text-[11px] font-medium text-[#FFB800]">Validação de Segurança (Obrigatória)</p>
                     <p className="text-[10px] text-[#888899] mt-0.5">
-                      A configuração do webhook é feita pela equipa NeXFlowX. Forneça ao seu gestor de conta
-                      o URL do seu servidor que irá receber as confirmações de pagamento.
+                      Valide sempre a assinatura HMAC-SHA256 usando o header{' '}
+                      <code className="text-[10px] px-1 py-0.5 rounded bg-[rgba(255,184,0,0.1)] text-[#FFB800] border border-[rgba(255,184,0,0.2)]">x-nexflowx-signature</code>{' '}
+                      e o seu <code className="text-[#FFB800]">Webhook Secret</code> disponível na aba &quot;Gerir Chaves &amp; Webhooks&quot;.
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Payload example */}
-              <div className="mt-2">
+              <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <ArrowRight className="w-3.5 h-3.5 text-[#FFB800]" />
+                  <FileJson className="w-3.5 h-3.5 text-[#00F0FF]" />
                   <span className="text-[10px] cyber-mono text-[#555566] tracking-wider">WEBHOOK PAYLOAD</span>
                 </div>
                 <CodeBlock language="json" filename="webhook-payload.json" code={webhookPayloadCode} />
               </div>
 
-              {/* Security Note */}
-              <div className="p-3 rounded-lg border border-[rgba(255,184,0,0.15)] bg-[rgba(255,184,0,0.04)]">
-                <div className="flex items-start gap-2">
-                  <Shield className="w-3.5 h-3.5 text-[#FFB800] shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[11px] font-medium text-[#FFB800]">Segurança: HMAC-SHA256</p>
-                    <p className="text-[10px] text-[#888899] mt-0.5">
-                      Cada payload de webhook é assinado com HMAC-SHA256. Valide a assinatura usando o header{' '}
-                      <code className="text-[10px] px-1 py-0.5 rounded bg-[rgba(255,184,0,0.1)] text-[#FFB800] border border-[rgba(255,184,0,0.2)]">x-nexflowx-signature</code>{' '}
-                      e o seu Webhook Secret disponível na aba &quot;Chaves &amp; Webhooks&quot;.
-                    </p>
+              {/* Fields explanation */}
+              <div className="p-3 rounded-lg bg-[rgba(10,10,14,0.4)] border border-[rgba(51,51,51,0.3)]">
+                <p className="text-[10px] cyber-mono text-[#555566] mb-2 tracking-wider">CAMPOS DO PAYLOAD</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#00FF41] w-36 shrink-0">event</code>
+                    <span className="text-[10px] text-[#555566]">— Tipo de evento disparado</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#00F0FF] w-36 shrink-0">transaction_id</code>
+                    <span className="text-[10px] text-[#555566]">— ID único da transação</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#00F0FF] w-36 shrink-0">store_id</code>
+                    <span className="text-[10px] text-[#555566]">— ID da loja (se aplicável)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#FFB800] w-36 shrink-0">amount / net_amount</code>
+                    <span className="text-[10px] text-[#555566]">— Valor bruto e líquido da transação</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#FFB800] w-36 shrink-0">method</code>
+                    <span className="text-[10px] text-[#555566]">— Método de pagamento (ex: card)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#E0E0E8] w-36 shrink-0">customer_details</code>
+                    <span className="text-[10px] text-[#555566]">— Dados adicionais enviados no metadata</span>
                   </div>
                 </div>
               </div>
