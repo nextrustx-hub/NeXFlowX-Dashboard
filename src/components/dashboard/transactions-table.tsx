@@ -21,11 +21,14 @@ import {
   Download,
   Calendar,
   User,
+  Store as StoreIcon,
 } from 'lucide-react';
 import { api, NexFlowXAPIError } from '@/lib/api/client';
 import type { Transaction, TransactionStatus } from '@/lib/api/contracts';
 import { useDashboardStore } from '@/lib/dashboard-store';
+import { useStoreSelectorStore } from '@/lib/store-selector-store';
 import { countryMeta } from '@/lib/mock-system-state';
+import { StoreSelector } from './store-selector';
 
 /* ─── Config ─────────────────────────────────────────────────────────────── */
 
@@ -229,6 +232,7 @@ function exportCSV(transactions: Transaction[]) {
 
 export default function TransactionsTable() {
   const { pipelineFilter, setPipelineFilter } = useDashboardStore();
+  const { selectedStoreId } = useStoreSelectorStore();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -270,6 +274,7 @@ export default function TransactionsTable() {
       if (countryFilter) query.country_code = countryFilter;
       if (dateFrom) query.date_from = dateFrom;
       if (dateTo) query.date_to = dateTo;
+      if (selectedStoreId) query.store_id = selectedStoreId;
 
       const res = await api.transactions.list(query);
       const data = res.data ?? [];
@@ -288,7 +293,7 @@ export default function TransactionsTable() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, searchTerm, statusFilter, countryFilter, dateFrom, dateTo]);
+  }, [currentPage, searchTerm, statusFilter, countryFilter, dateFrom, dateTo, selectedStoreId]);
 
   useEffect(() => {
     fetchTransactions();
@@ -296,7 +301,7 @@ export default function TransactionsTable() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, countryFilter, dateFrom, dateTo]);
+  }, [searchTerm, statusFilter, countryFilter, dateFrom, dateTo, selectedStoreId]);
 
   const handleUpdateStatus = async (txnId: string, newStatus: string) => {
     setUpdatingId(txnId);
@@ -347,6 +352,7 @@ export default function TransactionsTable() {
         if (countryFilter) query.country_code = countryFilter;
         if (dateFrom) query.date_from = dateFrom;
         if (dateTo) query.date_to = dateTo;
+        if (selectedStoreId) query.store_id = selectedStoreId;
         const res = await api.transactions.list(query);
         const data = res.data ?? [];
         allTxns.push(...data);
@@ -427,18 +433,21 @@ export default function TransactionsTable() {
               <h3 className="text-sm font-semibold text-[#E0E0E8]">Histórico de Transações</h3>
               <span className="text-[9px] cyber-mono text-[#444455]">via API</span>
             </div>
-            <button
-              onClick={handleExport}
-              disabled={isExporting || transactions.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] cyber-mono border border-[rgba(0,240,255,0.3)] text-[#00F0FF] hover:bg-[rgba(0,240,255,0.06)] hover:border-[rgba(0,240,255,0.5)] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              {isExporting ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Download className="w-3 h-3" />
-              )}
-              <span>{isExporting ? 'Exportando...' : 'Exportar CSV'}</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <StoreSelector />
+              <button
+                onClick={handleExport}
+                disabled={isExporting || transactions.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] cyber-mono border border-[rgba(0,240,255,0.3)] text-[#00F0FF] hover:bg-[rgba(0,240,255,0.06)] hover:border-[rgba(0,240,255,0.5)] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Download className="w-3 h-3" />
+                )}
+                <span>{isExporting ? 'Exportando...' : 'Exportar CSV'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Period presets */}
@@ -580,6 +589,7 @@ export default function TransactionsTable() {
                 <tr className="border-b border-[rgba(51,51,51,0.5)]">
                   <th className="text-left text-[10px] cyber-mono text-[#555566] pb-2 font-medium">STATUS</th>
                   <th className="text-left text-[10px] cyber-mono text-[#555566] pb-2 font-medium hidden sm:table-cell">PAÍS</th>
+                  <th className="text-left text-[10px] cyber-mono text-[#555566] pb-2 font-medium">LOJA</th>
                   <th className="text-left text-[10px] cyber-mono text-[#555566] pb-2 font-medium">ID</th>
                   <th className="text-left text-[10px] cyber-mono text-[#555566] pb-2 font-medium hidden md:table-cell">MÉTODO</th>
                   <th className="text-left text-[10px] cyber-mono text-[#555566] pb-2 font-medium hidden lg:table-cell">PAGADOR</th>
@@ -623,6 +633,20 @@ export default function TransactionsTable() {
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm">{getFlag(txn.country_code)}</span>
                           <span className="text-[10px] cyber-mono text-[#888899]">{txn.country_code?.toUpperCase()}</span>
+                        </div>
+                      </td>
+
+                      {/* Loja */}
+                      <td className="py-2.5 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <StoreIcon className="w-3 h-3 text-[#555566] shrink-0" />
+                          {txn.store ? (
+                            <span className="text-[10px] text-[#E0E0E8] truncate max-w-[100px]">
+                              {txn.store.name}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[#555566] italic">—</span>
+                          )}
                         </div>
                       </td>
 

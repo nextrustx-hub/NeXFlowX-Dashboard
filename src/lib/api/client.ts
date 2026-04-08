@@ -26,6 +26,16 @@ import type {
   APIKeysResponse,
   UpdateUserRequest,
   UpdateUserResponse,
+  Store,
+  CreateStoreRequest,
+  UpdateStoreRequest,
+  StoreResponse,
+  StoresResponse,
+  GatewaySettings,
+  CreateGatewayRequest,
+  UpdateGatewayRequest,
+  GatewayResponse,
+  GatewaysResponse,
   APIError,
 } from './contracts';
 
@@ -213,6 +223,66 @@ export const users = {
   },
 };
 
+// ─── STORES ────────────────────────────────────────────────────────────────
+
+export const stores = {
+  async list(): Promise<StoresResponse> {
+    return request('/stores');
+  },
+
+  async get(id: string): Promise<StoreResponse> {
+    return request(`/stores/${id}`);
+  },
+
+  async create(data: CreateStoreRequest): Promise<StoreResponse> {
+    return request('/stores', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: string, data: UpdateStoreRequest): Promise<StoreResponse> {
+    return request(`/stores/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    await request(`/stores/${id}`, { method: 'DELETE' });
+  },
+};
+
+// ─── GATEWAY SETTINGS ─────────────────────────────────────────────────────
+
+export const gateways = {
+  async list(): Promise<GatewaysResponse> {
+    return request('/settings/gateways');
+  },
+
+  async get(id: string): Promise<GatewayResponse> {
+    return request(`/settings/gateways/${id}`);
+  },
+
+  async create(data: CreateGatewayRequest): Promise<GatewayResponse> {
+    return request('/settings/gateways', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: string, data: UpdateGatewayRequest): Promise<GatewayResponse> {
+    return request(`/settings/gateways/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    await request(`/settings/gateways/${id}`, { method: 'DELETE' });
+  },
+};
+
 // ─── AGGREGATED CLIENT ────────────────────────────────────────────────────
 
 export const api = {
@@ -222,4 +292,6 @@ export const api = {
   paymentLinks,
   apiKeys,
   users,
+  stores,
+  gateways,
 };

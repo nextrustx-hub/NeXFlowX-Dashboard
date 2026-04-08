@@ -11,6 +11,7 @@ import {
   Zap,
   Users,
   Package,
+  Store,
   ExternalLink,
 } from 'lucide-react';
 import { useDashboardStore, type DashboardSection } from '@/lib/dashboard-store';
@@ -52,6 +53,12 @@ const navItems: { id: DashboardSection; label: string; icon: React.ReactNode; de
     label: 'Gerar Link de Pagamento',
     icon: <Link2 className="w-4 h-4" />,
     description: 'Criar URLs de checkout'
+  },
+  {
+    id: 'stores',
+    label: 'Lojas',
+    icon: <Store className="w-4 h-4" />,
+    description: 'Gestão de lojas multi-tenant'
   },
   {
     id: 'catalog',

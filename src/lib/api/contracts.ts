@@ -76,7 +76,54 @@ export interface AuthMeResponse {
   user: AuthUser;
 }
 
-// ─── 2. PIPELINE ─────────────────────────────────────────────────────────
+// ─── 2. STORES (Multi-Tenant) ─────────────────────────────────────────────
+// GET    /api/v1/stores
+// POST   /api/v1/stores
+// GET    /api/v1/stores/:id
+// PATCH  /api/v1/stores/:id
+// DELETE /api/v1/stores/:id
+
+export interface Store {
+  id: string;
+  name: string;
+  logo_url?: string;
+  primary_color: string;
+  accent_color: string;
+  webhook_url?: string;
+  default_provider?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateStoreRequest {
+  name: string;
+  logo_url?: string;
+  primary_color: string;
+  accent_color: string;
+  webhook_url?: string;
+  default_provider?: string;
+}
+
+export interface UpdateStoreRequest {
+  name?: string;
+  logo_url?: string;
+  primary_color?: string;
+  accent_color?: string;
+  webhook_url?: string;
+  default_provider?: string;
+}
+
+export interface StoreResponse {
+  success: boolean;
+  data: Store;
+}
+
+export interface StoresResponse {
+  success: boolean;
+  data: Store[];
+}
+
+// ─── 3. PIPELINE ─────────────────────────────────────────────────────────
 // GET /api/v1/pipeline
 //
 // Response format:
@@ -101,8 +148,8 @@ export interface PipelineResponse {
   data: PipelineData;
 }
 
-// ─── 3. TRANSACTIONS ─────────────────────────────────────────────────────
-// GET    /api/v1/transactions?page=1&limit=25&status=pending&search=...
+// ─── 4. TRANSACTIONS ─────────────────────────────────────────────────────
+// GET    /api/v1/transactions?page=1&limit=25&status=pending&search=...&store_id=...
 // PATCH  /api/v1/transactions/:id/status
 
 export interface Transaction {
@@ -129,6 +176,10 @@ export interface Transaction {
   error_code?: string;
   error_message?: string;
   settled_at?: string;
+  store?: {
+    id: string;
+    name: string;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -162,7 +213,7 @@ export interface UpdateLogisticsResponse {
   data: Transaction;
 }
 
-// ─── 4. PAYMENT LINKS ─────────────────────────────────────────────────────
+// ─── 5. PAYMENT LINKS ─────────────────────────────────────────────────────
 // POST /api/v1/payment-links   → creates intent, returns shareable_url
 // GET  /api/v1/payment-links   → lists created links
 
@@ -170,6 +221,8 @@ export interface CreatePaymentLinkRequest {
   amount: number;
   currency?: string;
   description?: string;
+  store_id?: string;
+  provider_name?: string;
 }
 
 export interface PaymentLink {
@@ -229,7 +282,55 @@ export interface APIKeysResponse {
   data: Omit<APIKey, 'key_full'>[];
 }
 
-// ─── 6. USER / WEBHOOK ───────────────────────────────────────────────────
+// ─── 7. GATEWAY SETTINGS ─────────────────────────────────────────────────
+// GET    /api/v1/settings/gateways
+// POST   /api/v1/settings/gateways
+// PATCH  /api/v1/settings/gateways/:id
+// DELETE /api/v1/settings/gateways/:id
+
+export type GatewayProvider = 'stripe' | 'sumup' | 'paypal';
+
+export interface GatewaySettings {
+  id: string;
+  name: string;
+  provider: GatewayProvider;
+  provider_api_key: string;
+  provider_secret?: string;
+  store_id?: string;  // null = global, with value = store-specific
+  environment: KeyEnvironment;
+  status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateGatewayRequest {
+  name: string;
+  provider: GatewayProvider;
+  provider_api_key: string;
+  provider_secret?: string;
+  store_id?: string | null;
+  environment: KeyEnvironment;
+}
+
+export interface UpdateGatewayRequest {
+  name?: string;
+  provider_api_key?: string;
+  provider_secret?: string;
+  store_id?: string | null;
+  status?: 'active' | 'inactive';
+}
+
+export interface GatewayResponse {
+  success: boolean;
+  data: GatewaySettings;
+}
+
+export interface GatewaysResponse {
+  success: boolean;
+  data: GatewaySettings[];
+}
+
+// ─── 8. USER / WEBHOOK ───────────────────────────────────────────────────
 // PATCH /api/v1/users/me  → update webhook_url
 
 export interface UpdateUserRequest {
@@ -243,7 +344,7 @@ export interface UpdateUserResponse {
   data: AuthUser;
 }
 
-// ─── 7. SYSTEM STATE (Capacity Matrix — mock kept) ───────────────────────
+// ─── 9. SYSTEM STATE (Capacity Matrix — mock kept) ───────────────────────
 
 export interface SystemStateEntry {
   country_code: string;

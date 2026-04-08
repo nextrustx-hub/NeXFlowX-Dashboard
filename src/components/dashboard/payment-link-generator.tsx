@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Link2,
   Copy,
@@ -10,10 +11,20 @@ import {
   Euro,
   Loader2,
   CheckCircle2,
+  Store,
+  CreditCard,
+  Zap,
 } from 'lucide-react';
 import { api, NexFlowXAPIError } from '@/lib/api/client';
 import type { PaymentLink } from '@/lib/api/contracts';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
 
@@ -33,6 +44,12 @@ const CURRENCIES = [
   { code: 'EUR', symbol: '€', label: 'Euro' },
   { code: 'USD', symbol: '$', label: 'Dólar Americano' },
   { code: 'BRL', symbol: 'R$', label: 'Real Brasileiro' },
+] as const;
+
+const PROVIDERS = [
+  { value: 'auto', label: 'Automático', icon: <Zap className="w-3.5 h-3.5" /> },
+  { value: 'stripe', label: 'Stripe', icon: <CreditCard className="w-3.5 h-3.5" /> },
+  { value: 'sumup', label: 'SumUp', icon: <Store className="w-3.5 h-3.5" /> },
 ] as const;
 
 const CHECKOUT_BASE_URL = 'https://pay.nexflowx.tech';
@@ -71,10 +88,21 @@ async function copyToClipboard(text: string): Promise<boolean> {
 export default function PaymentLinkGenerator() {
   const { toast } = useToast();
 
+  // Fetch stores
+  const { data: storesResponse } = useQuery({
+    queryKey: ['stores'],
+    queryFn: () => api.stores.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const stores = storesResponse?.data || [];
+
   // Form state
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('EUR');
   const [productName, setProductName] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState('auto');
 
   // Creation state
   const [isCreating, setIsCreating] = useState(false);
@@ -105,6 +133,8 @@ export default function PaymentLinkGenerator() {
         metadata: {
           product: productName.trim() || 'Sem nome',
         },
+        store_id: selectedStoreId || undefined,
+        provider_name: selectedProvider,
       });
 
       const newLink = response.data;
@@ -114,6 +144,8 @@ export default function PaymentLinkGenerator() {
       // Clear form
       setAmount('');
       setProductName('');
+      setSelectedStoreId(null);
+      setSelectedProvider('auto');
     } catch (err) {
       if (err instanceof NexFlowXAPIError) {
         setCreationError(err.message);
@@ -197,6 +229,64 @@ export default function PaymentLinkGenerator() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* ── Store Select ── */}
+            <div>
+              <label className="block text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
+                LOJA
+              </label>
+              <Select value={selectedStoreId || ''} onValueChange={(value) => setSelectedStoreId(value || null)}>
+                <SelectTrigger className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm cyber-mono text-[#E0E0E8] appearance-none cursor-pointer">
+                  <SelectValue placeholder="Selecione uma loja (opcional)" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#12121A] border-[rgba(51,51,51,0.5)]">
+                  {stores.length === 0 ? (
+                    <SelectItem value="" disabled className="text-[#555566]">
+                      Nenhuma loja disponível
+                    </SelectItem>
+                  ) : (
+                    <>
+                      <SelectItem value="" className="text-[#888899]">
+                        Sem loja específica
+                      </SelectItem>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={store.id} className="text-[#E0E0E8]">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded border border-[rgba(255,255,255,0.2)]"
+                              style={{ backgroundColor: store.primary_color }}
+                            />
+                            <span>{store.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ── Provider Select ── */}
+            <div>
+              <label className="block text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
+                PROVIDER PADRÃO
+              </label>
+              <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                <SelectTrigger className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm cyber-mono text-[#E0E0E8] appearance-none cursor-pointer">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#12121A] border-[rgba(51,51,51,0.5)]">
+                  {PROVIDERS.map((provider) => (
+                    <SelectItem key={provider.value} value={provider.value} className="text-[#E0E0E8]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#555566]">{provider.icon}</span>
+                        <span>{provider.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* ── Product Name Input ── */}

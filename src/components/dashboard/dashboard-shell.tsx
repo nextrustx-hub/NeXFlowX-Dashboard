@@ -12,6 +12,7 @@ import PaymentLinkGenerator from '@/components/dashboard/payment-link-generator'
 import APIManagement from '@/components/dashboard/api-management';
 import CRMPage from '@/components/dashboard/crm-page';
 import CatalogPage from '@/components/dashboard/catalog-page';
+import StoresPage from '@/components/dashboard/stores-page';
 import { LogOut } from 'lucide-react';
 
 export default function DashboardShell() {
@@ -111,6 +112,17 @@ export default function DashboardShell() {
                 <div className="flex-1 h-px bg-[rgba(51,51,51,0.3)]" />
               </div>
               <CatalogPage />
+            </div>
+          )}
+
+          {/* Stores Section */}
+          {activeSection === 'stores' && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-[10px] cyber-mono text-[#555566] tracking-wider">GESTÃO // LOJAS</span>
+                <div className="flex-1 h-px bg-[rgba(51,51,51,0.3)]" />
+              </div>
+              <StoresPage />
             </div>
           )}
         </main>

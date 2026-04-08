@@ -7,7 +7,8 @@ export type DashboardSection =
   | 'api-integration'
   | 'payment-links'
   | 'crm'
-  | 'catalog';
+  | 'catalog'
+  | 'stores';
 
 interface DashboardStore {
   activeSection: DashboardSection;
