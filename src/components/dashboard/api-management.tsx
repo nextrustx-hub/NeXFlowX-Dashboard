@@ -1092,6 +1092,334 @@ console.log("Checkout URL:", data.data.shareable_url);`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   TAB 3: GATEWAYS POR LOJA
+   ═══════════════════════════════════════════════════════════════ */
+
+function GatewaysTab() {
+  const [gateways, setGateways] = useState<Array<{
+    id: string;
+    name: string;
+    provider: string;
+    store_id?: string;
+    store_name?: string;
+    status: string;
+    created_at: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form state
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    provider: 'stripe',
+    provider_api_key: '',
+    provider_secret: '',
+    store_id: '',
+    environment: 'production',
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch stores for select
+  const { data: storesResponse } = useQuery({
+    queryKey: ['stores'],
+    queryFn: () => api.stores.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const stores = storesResponse?.data || [];
+
+  // Fetch gateways
+  const fetchGateways = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.gateways.list();
+      const gatewaysWithStoreNames = await Promise.all(
+        res.data.map(async (gw) => {
+          let storeName = 'Global';
+          if (gw.store_id) {
+            try {
+              const storeRes = await api.stores.get(gw.store_id);
+              storeName = storeRes.data.name;
+            } catch {
+              storeName = 'Loja Desconhecida';
+            }
+          }
+          return {
+            ...gw,
+            store_name: storeName,
+          };
+        })
+      );
+      setGateways(gatewaysWithStoreNames);
+    } catch {
+      setError('Erro ao carregar gateways.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGateways();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.gateways.create({
+        name: formData.name,
+        provider: formData.provider as any,
+        provider_api_key: formData.provider_api_key,
+        provider_secret: formData.provider_secret || undefined,
+        store_id: formData.store_id || undefined,
+        environment: formData.environment as any,
+      });
+      setShowForm(false);
+      setFormData({
+        name: '',
+        provider: 'stripe',
+        provider_api_key: '',
+        provider_secret: '',
+        store_id: '',
+        environment: 'production',
+      });
+      fetchGateways();
+    } catch {
+      // Handle error
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja eliminar este gateway?')) return;
+    try {
+      await api.gateways.delete(id);
+      fetchGateways();
+    } catch {
+      // Handle error
+    }
+  };
+
+  const fmtDate = (d: string) => {
+    return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-[#FFB800]" />
+          <h3 className="text-sm font-semibold text-[#E0E0E8]">Gateways por Loja</h3>
+          <span className="text-[9px] cyber-mono text-[#444455]">POST /settings/gateways</span>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="cyber-btn-primary px-3 py-1.5 rounded-lg text-xs cyber-mono flex items-center gap-2"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {showForm ? 'Cancelar' : 'Novo Gateway'}
+        </button>
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div className="cyber-panel p-4 border border-[rgba(0,255,65,0.2)]">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] cyber-mono text-[#555566] mb-1">Nome</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Ex: Stripe PT"
+                  className="cyber-input w-full px-3 py-2 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] cyber-mono text-[#555566] mb-1">Provider</label>
+                <select
+                  value={formData.provider}
+                  onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+                  className="cyber-input w-full px-3 py-2 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
+                >
+                  <option value="stripe">Stripe</option>
+                  <option value="sumup">SumUp</option>
+                  <option value="paypal">PayPal</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] cyber-mono text-[#555566] mb-1">API Key</label>
+              <input
+                type="text"
+                value={formData.provider_api_key}
+                onChange={(e) => setFormData({ ...formData, provider_api_key: e.target.value })}
+                placeholder="sk_live_..."
+                className="cyber-input w-full px-3 py-2 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] cyber-mono text-[#555566] mb-1">Secret (opcional)</label>
+              <input
+                type="password"
+                value={formData.provider_secret}
+                onChange={(e) => setFormData({ ...formData, provider_secret: e.target.value })}
+                placeholder="••••••••"
+                className="cyber-input w-full px-3 py-2 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] cyber-mono text-[#555566] mb-1">Vincular a Loja (opcional)</label>
+                <select
+                  value={formData.store_id}
+                  onChange={(e) => setFormData({ ...formData, store_id: e.target.value })}
+                  className="cyber-input w-full px-3 py-2 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
+                >
+                  <option value="">Global (todas as lojas)</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] cyber-mono text-[#555566] mb-1">Ambiente</label>
+                <select
+                  value={formData.environment}
+                  onChange={(e) => setFormData({ ...formData, environment: e.target.value })}
+                  className="cyber-input w-full px-3 py-2 rounded-lg text-sm cyber-mono text-[#E0E0E8]"
+                >
+                  <option value="production">Produção</option>
+                  <option value="sandbox">Sandbox</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-3 py-1.5 rounded-lg text-xs cyber-mono border border-[rgba(51,51,51,0.5)] text-[#888899] hover:text-[#E0E0E8] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="cyber-btn-primary px-4 py-1.5 rounded-lg text-xs cyber-mono flex items-center gap-2 disabled:opacity-40"
+              >
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {submitting ? 'A guardar...' : 'Criar Gateway'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="cyber-panel overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-[#00FF41] animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-sm text-[#FF0040]">{error}</p>
+          </div>
+        ) : gateways.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Zap className="w-10 h-10 text-[#555566] mb-2" />
+            <p className="text-sm text-[#888899]">Nenhum gateway configurado</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto max-h-[400px] overflow-y-auto cyber-scrollbar">
+            <table className="w-full">
+              <thead className="sticky top-0 bg-[#0A0A0C] z-10">
+                <tr className="border-b border-[rgba(51,51,51,0.6)]">
+                  <th className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-left px-4 py-3">NOME</th>
+                  <th className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-left px-4 py-3">PROVIDER</th>
+                  <th className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-left px-4 py-3">LOJA</th>
+                  <th className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-left px-4 py-3">AMBIENTE</th>
+                  <th className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-left px-4 py-3">STATUS</th>
+                  <th className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-left px-4 py-3">CRIADO EM</th>
+                  <th className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider text-right px-4 py-3">AÇÕES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gateways.map((gw) => (
+                  <tr key={gw.id} className="border-b border-[rgba(51,51,51,0.3)] hover:bg-[rgba(0,255,65,0.02)] transition-colors">
+                    <td className="text-xs text-[#E0E0E8] font-medium px-4 py-3">{gw.name}</td>
+                    <td className="text-xs px-4 py-3">
+                      <span className="cyber-mono text-[#00F0FF]">{gw.provider}</span>
+                    </td>
+                    <td className="text-xs px-4 py-3">
+                      <Badge
+                        className={`text-[9px] px-2 py-0.5 ${
+                          gw.store_id
+                            ? 'bg-[rgba(0,255,65,0.1)] text-[#00FF41] border-[rgba(0,255,65,0.3)]'
+                            : 'bg-[rgba(0,240,255,0.1)] text-[#00F0FF] border-[rgba(0,240,255,0.3)]'
+                        }`}
+                      >
+                        {gw.store_name || 'Global'}
+                      </Badge>
+                    </td>
+                    <td className="text-xs px-4 py-3">
+                      <Badge
+                        className={`text-[9px] px-2 py-0.5 ${
+                          gw.environment === 'production'
+                            ? 'bg-[rgba(255,0,64,0.1)] text-[#FF0040] border-[rgba(255,0,64,0.3)]'
+                            : 'bg-[rgba(255,184,0,0.1)] text-[#FFB800] border-[rgba(255,184,0,0.3)]'
+                        }`}
+                      >
+                        {gw.environment}
+                      </Badge>
+                    </td>
+                    <td className="text-xs px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            gw.status === 'active' ? 'bg-[#00FF41]' : 'bg-[#FF0040]'
+                          }`}
+                        />
+                        <span className="text-[10px] text-[#888899]">
+                          {gw.status === 'active' ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="text-xs cyber-mono text-[#888899] px-4 py-3">
+                      {fmtDate(gw.created_at)}
+                    </td>
+                    <td className="text-right px-4 py-3">
+                      <button
+                        onClick={() => handleDelete(gw.id)}
+                        className="p-1.5 rounded hover:bg-[rgba(255,0,64,0.1)] text-[#555566] hover:text-[#FF0040] transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    MAIN EXPORT — DEVELOPER HUB WITH TABS
    ═══════════════════════════════════════════════════════════════ */
 
@@ -1118,6 +1446,13 @@ export default function APIManagement() {
             <span className="text-xs font-medium">Gerir Chaves & Webhooks</span>
           </TabsTrigger>
           <TabsTrigger
+            value="gateways"
+            className="data-[state=active]:bg-[rgba(0,255,65,0.08)] data-[state=active]:text-[#00FF41] data-[state=active]:shadow-[0_0_12px_rgba(0,255,65,0.1)] text-[#888899] hover:text-[#BBBBCC] hover:bg-[rgba(255,255,255,0.03)] data-[state=active]:border-[rgba(0,255,65,0.25)] rounded-lg px-4 gap-2 transition-all duration-200"
+          >
+            <Zap className="w-4 h-4" />
+            <span className="text-xs font-medium">Gateways por Loja</span>
+          </TabsTrigger>
+          <TabsTrigger
             value="docs"
             className="data-[state=active]:bg-[rgba(0,255,65,0.08)] data-[state=active]:text-[#00FF41] data-[state=active]:shadow-[0_0_12px_rgba(0,255,65,0.1)] text-[#888899] hover:text-[#BBBBCC] hover:bg-[rgba(255,255,255,0.03)] data-[state=active]:border-[rgba(0,255,65,0.25)] rounded-lg px-4 gap-2 transition-all duration-200"
           >
@@ -1128,6 +1463,10 @@ export default function APIManagement() {
 
         <TabsContent value="keys" className="mt-2">
           <KeysWebhooksTab />
+        </TabsContent>
+
+        <TabsContent value="gateways" className="mt-2">
+          <GatewaysTab />
         </TabsContent>
 
         <TabsContent value="docs" className="mt-2">

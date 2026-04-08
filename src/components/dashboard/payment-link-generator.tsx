@@ -236,18 +236,18 @@ export default function PaymentLinkGenerator() {
               <label className="block text-[10px] cyber-mono text-[#555566] mb-1.5 tracking-wider">
                 LOJA
               </label>
-              <Select value={selectedStoreId || ''} onValueChange={(value) => setSelectedStoreId(value || null)}>
+              <Select value={selectedStoreId || 'none'} onValueChange={(value) => setSelectedStoreId(value === 'none' ? null : value)}>
                 <SelectTrigger className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm cyber-mono text-[#E0E0E8] appearance-none cursor-pointer">
                   <SelectValue placeholder="Selecione uma loja (opcional)" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#12121A] border-[rgba(51,51,51,0.5)]">
                   {stores.length === 0 ? (
-                    <SelectItem value="" disabled className="text-[#555566]">
+                    <SelectItem value="none" disabled className="text-[#555566]">
                       Nenhuma loja disponível
                     </SelectItem>
                   ) : (
                     <>
-                      <SelectItem value="" className="text-[#888899]">
+                      <SelectItem value="none" className="text-[#888899]">
                         Sem loja específica
                       </SelectItem>
                       {stores.map((store) => (

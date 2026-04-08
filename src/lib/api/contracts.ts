@@ -90,6 +90,7 @@ export interface Store {
   primary_color: string;
   accent_color: string;
   webhook_url?: string;
+  webhook_secret?: string;
   default_provider?: string;
   created_at: string;
   updated_at: string;

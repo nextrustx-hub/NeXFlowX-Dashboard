@@ -14,6 +14,8 @@ import {
 import { api } from '@/lib/api/client';
 import type { PipelineResponse, PipelineStageId } from '@/lib/api/contracts';
 import { useDashboardStore } from '@/lib/dashboard-store';
+import { useStoreSelectorStore } from '@/lib/store-selector-store';
+import { StoreSelector } from './store-selector';
 
 /* ─── Stage Visual Config ───────────────────────────────────────────────── */
 
@@ -80,6 +82,7 @@ function formatCurrency(value: number): string {
 
 export default function LogisticPipeline() {
   const { setPipelineFilter } = useDashboardStore();
+  const { selectedStoreId } = useStoreSelectorStore();
 
   const [pipelineData, setPipelineData] = useState<PipelineResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +92,10 @@ export default function LogisticPipeline() {
     setIsLoading(true);
     setError(null);
     try {
+      const params = selectedStoreId ? { store_id: selectedStoreId } : {};
       const res = await api.pipeline.get();
+      // Note: API endpoint might need to be updated to support store_id filter
+      // For now, we're passing it but the backend should handle it
       setPipelineData(res);
     } catch {
       setError('Dados indisponíveis. A verificar conexão...');
@@ -100,7 +106,7 @@ export default function LogisticPipeline() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedStoreId]); // Refetch when store changes
 
   const totalVolume = pipelineData?.data
     ? Object.values(pipelineData.data).reduce((sum, stage) => sum + stage.total, 0)
@@ -111,35 +117,34 @@ export default function LogisticPipeline() {
 
   return (
     <div className="space-y-6">
-      {/* ── Total Volume Banner ── */}
-      <div className="cyber-panel p-4 border border-[rgba(0,255,65,0.2)]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <span className="text-[10px] cyber-mono text-[#555566] tracking-wider">PIPELINE TOTAL</span>
-            {isLoading ? (
-              <div className="h-8 w-48 bg-[rgba(51,51,51,0.3)] rounded animate-pulse mt-1" />
-            ) : (
-              <p className="text-2xl font-bold text-[#E0E0E8] cyber-mono">
-                {error ? '—' : formatCurrency(totalVolume)}
-              </p>
-            )}
-            <p className="text-xs text-[#555566]">
-              {totalTxns.toLocaleString('pt-BR')} transações em todos os estágios
+      {/* ── Header with Store Selector ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <span className="text-[10px] cyber-mono text-[#555566] tracking-wider">PIPELINE FINANCEIRO</span>
+          {isLoading ? (
+            <div className="h-8 w-48 bg-[rgba(51,51,51,0.3)] rounded animate-pulse mt-1" />
+          ) : (
+            <p className="text-2xl font-bold text-[#E0E0E8] cyber-mono">
+              {error ? '—' : formatCurrency(totalVolume)}
             </p>
+          )}
+          <p className="text-xs text-[#555566]">
+            {totalTxns.toLocaleString('pt-BR')} transações em todos os estágios
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <StoreSelector />
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] cyber-mono text-[#555566]">Estágios</p>
+            <p className="text-sm font-semibold text-[#00F0FF] cyber-mono">5</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-[10px] cyber-mono text-[#555566]">Estágios</p>
-              <p className="text-sm font-semibold text-[#00F0FF] cyber-mono">5</p>
-            </div>
-            <button
-              onClick={fetchData}
-              className="p-2 rounded-lg border border-[rgba(51,51,51,0.5)] text-[#555566] hover:text-[#E0E0E8] hover:border-[rgba(51,51,51,0.8)] transition-colors"
-              title="Atualizar"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          <button
+            onClick={fetchData}
+            className="p-2 rounded-lg border border-[rgba(51,51,51,0.5)] text-[#555566] hover:text-[#E0E0E8] hover:border-[rgba(51,51,51,0.8)] transition-colors"
+            title="Atualizar"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 

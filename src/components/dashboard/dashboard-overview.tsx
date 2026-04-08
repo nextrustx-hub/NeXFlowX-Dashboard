@@ -20,6 +20,8 @@ import {
   countryMeta,
 } from '@/lib/mock-system-state';
 import { useDashboardStore, type DashboardSection } from '@/lib/dashboard-store';
+import { useStoreSelectorStore } from '@/lib/store-selector-store';
+import { StoreSelector } from './store-selector';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -89,6 +91,7 @@ function StatCard({ label, value, icon, color, borderColor, iconBg }: StatCardPr
 
 export default function DashboardOverview() {
   const { setActiveSection } = useDashboardStore();
+  const { selectedStoreId } = useStoreSelectorStore();
 
   const [pipeline, setPipeline] = useState<PipelineResponse | null>(null);
   const [recentTxns, setRecentTxns] = useState<Transaction[]>([]);
@@ -99,9 +102,10 @@ export default function DashboardOverview() {
     setIsLoading(true);
     setError(null);
     try {
+      const params = selectedStoreId ? { store_id: selectedStoreId } : {};
       const [pipelineRes, txnsRes] = await Promise.all([
         api.pipeline.get(),
-        api.transactions.list({ limit: '10' }),
+        api.transactions.list({ limit: '10', ...params }),
       ]);
       setPipeline(pipelineRes);
       setRecentTxns(txnsRes.data ?? []);
@@ -110,7 +114,7 @@ export default function DashboardOverview() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedStoreId]);
 
   useEffect(() => {
     fetchData();
@@ -140,6 +144,17 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {/* ── Header with Store Selector ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-[#E0E0E8]">Dashboard Overview</h2>
+          <p className="text-sm text-[#888899] mt-1">
+            Visão geral do seu negócio
+          </p>
+        </div>
+        <StoreSelector />
+      </div>
+
       {/* ── Stats Grid ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoading ? (

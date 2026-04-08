@@ -29,6 +29,10 @@ import {
   Palette,
   Loader2,
   CheckCircle2,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { api, NexFlowXAPIError } from '@/lib/api/client';
 import type { Store, CreateStoreRequest, UpdateStoreRequest } from '@/lib/api/contracts';
@@ -48,6 +52,41 @@ export default function StoresPage() {
     accent_color: '#00F0FF',
     webhook_url: '',
   });
+
+  // Webhook secret visibility and copy state
+  const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
+  const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
+
+  const toggleSecretVisibility = (id: string) => {
+    setVisibleSecrets(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const copySecret = async (secret: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(secret);
+      setCopiedSecret(id);
+      toast({
+        title: 'Secret copiado!',
+        description: 'Webhook Secret copiado para a área de transferência.',
+        className: 'border-[#00FF41] bg-[rgba(0,255,65,0.1)] text-[#00FF41]',
+      });
+      setTimeout(() => setCopiedSecret(null), 2000);
+    } catch {
+      toast({
+        title: 'Erro ao copiar',
+        description: 'Não foi possível copiar o secret.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Fetch stores
   const { data: storesResponse, isLoading, error } = useQuery({
@@ -367,7 +406,10 @@ export default function StoresPage() {
                     COR DE ACENTO
                   </TableHead>
                   <TableHead className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider">
-                    WEBHOOK
+                    WEBHOOK URL
+                  </TableHead>
+                  <TableHead className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider">
+                    WEBHOOK SECRET
                   </TableHead>
                   <TableHead className="text-[10px] cyber-mono text-[#555566] font-medium tracking-wider">
                     CRIADO EM
@@ -424,6 +466,43 @@ export default function StoresPage() {
                         <span className="text-[#00F0FF] underline truncate max-w-[150px] block">
                           {store.webhook_url}
                         </span>
+                      ) : (
+                        <span className="text-[10px] text-[#555566]">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {store.webhook_secret ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => toggleSecretVisibility(store.id)}
+                            className="p-1 rounded hover:bg-[rgba(255,255,255,0.05)] text-[#555566] hover:text-[#E0E0E8] transition-colors"
+                          >
+                            {visibleSecrets.has(store.id) ? (
+                              <EyeOff className="w-3.5 h-3.5" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <code className="text-[11px] cyber-mono text-[#FFB800] truncate max-w-[120px]">
+                            {visibleSecrets.has(store.id)
+                              ? store.webhook_secret
+                              : 'nx_sec_••••••••••••'}
+                          </code>
+                          <button
+                            onClick={() => copySecret(store.webhook_secret!, store.id)}
+                            className={`p-1 rounded transition-colors ${
+                              copiedSecret === store.id
+                                ? 'text-[#00FF41]'
+                                : 'hover:bg-[rgba(255,255,255,0.05)] text-[#555566] hover:text-[#E0E0E8]'
+                            }`}
+                          >
+                            {copiedSecret === store.id ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-[10px] text-[#555566]">—</span>
                       )}
